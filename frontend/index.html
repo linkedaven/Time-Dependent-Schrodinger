@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schrödinger Solver</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%231e1e1e%27/%3E%3Cpath d=%27M3 20 C7 20 8 8 12 8 S16 24 20 24 S24 14 29 14%27 fill=%27none%27 stroke=%27%231dd1a1%27 stroke-width=%272.4%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Schrödinger Solver</h1>
+    <span class="sub">1D wave packets &middot; &#8463; = m = 1 &middot; solved by a Java backend</span>
+  </header>
+
+  <div class="layout">
+    <!-- ================= left: what to simulate ================= -->
+    <aside class="side">
+      <section class="card">
+        <h2>Example</h2>
+        <select id="preset" aria-label="Example setups"></select>
+        <p class="muted small" id="presetNote"></p>
+      </section>
+
+      <section class="card">
+        <h2>Potential V(x)</h2>
+        <select id="potential" aria-label="Potential">
+          <option value="free">Free space</option>
+          <option value="step">Step</option>
+          <option value="barrier" selected>Barrier</option>
+          <option value="well">Well</option>
+          <option value="double_barrier">Double barrier</option>
+          <option value="harmonic">Harmonic oscillator</option>
+          <option value="double_well">Double well</option>
+        </select>
+        <div class="ctl" id="row-v0"><div class="lab"><label for="v0" id="lab-v0">Height V₀</label><b id="val-v0"></b></div>
+          <input type="range" id="v0" min="0" max="30" step="0.1" value="6"></div>
+        <div class="ctl" id="row-width"><div class="lab"><label for="width" id="lab-width">Width a</label><b id="val-width"></b></div>
+          <input type="range" id="width" min="0.2" max="10" step="0.1" value="1"></div>
+        <div class="ctl" id="row-gap"><div class="lab"><label for="gap">Gap between barriers</label><b id="val-gap"></b></div>
+          <input type="range" id="gap" min="0.2" max="10" step="0.1" value="1.5"></div>
+        <div class="ctl" id="row-omega"><div class="lab"><label for="omega">Frequency &omega;</label><b id="val-omega"></b></div>
+          <input type="range" id="omega" min="0.1" max="2" step="0.05" value="0.5"></div>
+      </section>
+
+      <section class="card">
+        <h2>Wave packet</h2>
+        <div class="ctl"><div class="lab"><label for="x0">Start position x₀</label><b id="val-x0"></b></div>
+          <input type="range" id="x0" min="-22" max="22" step="0.5" value="-15"></div>
+        <div class="ctl"><div class="lab"><label for="k0">Momentum k₀</label><b id="val-k0"></b></div>
+          <input type="range" id="k0" min="-8" max="8" step="0.1" value="3"></div>
+        <div class="ctl"><div class="lab"><label for="sigma">Width σ</label><b id="val-sigma"></b></div>
+          <input type="range" id="sigma" min="0.3" max="4" step="0.05" value="1"></div>
+        <p class="muted small" id="packetInfo"></p>
+      </section>
+
+      <section class="card">
+        <h2>Solver</h2>
+        <label class="ctl"><span class="lab">Method</span>
+          <select id="method">
+            <option value="split">Split-step Fourier</option>
+            <option value="cn">Crank–Nicolson</option>
+            <option value="euler">Forward Euler (unstable)</option>
+          </select>
+        </label>
+        <div class="two">
+          <label class="ctl"><span class="lab">Grid points</span>
+            <select id="n"><option>512</option><option>1024</option><option selected>2048</option><option>4096</option></select>
+          </label>
+          <label class="ctl"><span class="lab">Time step</span>
+            <select id="dt"><option value="0.0005">0.0005</option><option value="0.001">0.001</option><option value="0.002" selected>0.002</option><option value="0.004">0.004</option><option value="0.01">0.01</option><option value="0.02">0.02</option><option value="0.05">0.05</option></select>
+          </label>
+        </div>
+        <label class="ctl"><span class="lab">Edges of the box</span>
+          <select id="edges">
+            <option value="absorbing" selected>Absorbing (waves leave)</option>
+            <option value="walls">Reflecting walls</option>
+          </select>
+        </label>
+        <div class="ctl"><div class="lab"><label for="tmax">Duration</label><b id="val-tmax"></b></div>
+          <input type="range" id="tmax" min="2" max="60" step="1" value="14"></div>
+        <p class="muted small" id="solverInfo"></p>
+      </section>
+    </aside>
+
+    <!-- ================= centre: the wave ================= -->
+    <section class="card stage">
+      <div class="chips" id="chips"></div>
+      <div class="plot" id="plot">
+        <canvas id="cv" aria-label="Wave packet, probability density and real and imaginary parts"></canvas>
+        <div class="msg" id="msg" hidden></div>
+      </div>
+      <div class="notes" id="notes"></div>
+      <div class="player">
+        <button id="play" title="Play or pause">Pause</button>
+        <button id="restart" title="Back to t = 0">Restart</button>
+        <input type="range" id="scrub" min="0" max="239" step="1" value="0" aria-label="Time">
+        <label class="chk">Speed
+          <select id="speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+        </label>
+        <label class="chk"><input type="checkbox" id="showRe" checked> Re ψ</label>
+        <label class="chk"><input type="checkbox" id="showIm" checked> Im ψ</label>
+      </div>
+    </section>
+
+    <!-- ================= right: checks ================= -->
+    <aside class="right">
+      <section class="card">
+        <h2>Momentum distribution |φ(k)|²</h2>
+        <div class="mini"><canvas id="mom" aria-label="Momentum distribution"></canvas></div>
+      </section>
+      <section class="card" id="scatterCard">
+        <h2>Where the probability went</h2>
+        <div class="mini"><canvas id="prob" aria-label="Reflected and transmitted probability over time"></canvas></div>
+        <dl class="props" id="scatterRows"></dl>
+      </section>
+      <section class="card">
+        <div class="row" style="margin-top:0;justify-content:space-between">
+          <h2 style="margin:0">Over time</h2>
+          <select id="series" style="width:auto" aria-label="Quantity to plot">
+            <option value="norm">Total probability</option>
+            <option value="energy">Energy ⟨H⟩</option>
+            <option value="xmean">Position ⟨x⟩</option>
+            <option value="uncertainty">Δx · Δp</option>
+          </select>
+        </div>
+        <div class="mini"><canvas id="ser" aria-label="Quantity over time"></canvas></div>
+        <p class="muted small" id="serNote"></p>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/plots.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
