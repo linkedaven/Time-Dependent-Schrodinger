@@ -1,0 +1,14 @@
+backend/out/
+backend/out-jar/
+build/
+dist/
+out-jar/
+*.class
+
+# editors and systems
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+build.bat
